@@ -25,8 +25,8 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.logging import get_logger
 from rclpy.node import Node
 
-from utils.python_utils import printlog
-from utils.python_utils import print_list_text
+
+from utils.python_utils import printlog, print_list_text, overlay_image
 
 from usr_msgs.msg import Planner as planner_msg
 from usr_msgs.msg import Kiwibot as kiwibot_msg
@@ -86,7 +86,13 @@ class VisualsNode(Thread, Node):
         # message type: planner_msg
         # callback:cb_path_planner
         # add here your solution
-
+        self.planner_status_subs = self.create_subscription(
+            msg_type=planner_msg,
+            topic='/path_planner/msg',
+            callback=self.cb_path_planner,
+            qos_profile=qos_profile_sensor_data,
+            callback_group=self.callback_group,
+        )
         # ------------------------------------------
         # TODO: Implement the Kiwibot status subscriber,
         # topic name: "/kiwibot/status"
@@ -94,6 +100,13 @@ class VisualsNode(Thread, Node):
         # callback:cb_kiwibot_status
         # add here your solution
         self.msg_kiwibot = kiwibot_msg()
+        self.kiwibot_status_subs = self.create_subscription(
+            msg_type=kiwibot_msg,
+            topic='/kiwibot/status',
+            callback=self.cb_kiwibot_status,
+            qos_profile=qos_profile_sensor_data,
+            callback_group=self.callback_group
+        )
         self.turn_robot(heading_angle=float(os.getenv("BOT_INITIAL_YAW", default=0.0)))
         self.msg_kiwibot.pos_x = int(os.getenv("BOT_INITIAL_X", default=917))
         self.msg_kiwibot.pos_y = int(os.getenv("BOT_INITIAL_Y", default=1047))
@@ -103,13 +116,13 @@ class VisualsNode(Thread, Node):
 
         # Publisher for activating the routines
         # Uncomment
-        # self.msg_path_number = Int32()
-        # self.pub_start_routine = self.create_publisher(
-        #     msg_type=Int32,
-        #     topic="/graphics/start_routine",
-        #     qos_profile=1,
-        #     callback_group=self.callback_group,
-        # )
+        self.msg_path_number = Int32()
+        self.pub_start_routine = self.create_publisher(
+            msg_type=Int32,
+            topic="/graphics/start_routine",
+            qos_profile=1,
+            callback_group=self.callback_group,
+        )
 
         # ---------------------------------------------------------------------
         self.damon = True
@@ -170,14 +183,13 @@ class VisualsNode(Thread, Node):
         try:
             # rotate robot's image
             if self.msg_kiwibot.yaw != msg.yaw:
+                self._kiwibot_img = cv2.imread(
+                    self._kiwibot_img_path, cv2.IMREAD_UNCHANGED
+                )
                 if not int((msg.yaw - int(msg.yaw)) * 100):
-                    self._kiwibot_img = cv2.imread(
-                        self._kiwibot_img_path, cv2.IMREAD_UNCHANGED
-                    )
                     self.turn_robot(heading_angle=msg.yaw)
                 else:
-                    move_angle = msg.yaw - self.msg_kiwibot.yaw
-                    self.turn_robot(heading_angle=move_angle)
+                    self.turn_robot(heading_angle=msg.yaw)
 
             self.msg_kiwibot = msg
 
@@ -297,7 +309,7 @@ class VisualsNode(Thread, Node):
             angle=(heading_angle),
             scale=1,
         )
-
+        
         # Rotate robots image
         self._kiwibot_img = cv2.warpAffine(
             src=self._kiwibot_img,
@@ -323,8 +335,7 @@ class VisualsNode(Thread, Node):
 
         # -----------------------------------------
         # Insert you solution here
-
-        return l_img  # remove this line when implement your solution
+        return overlay_image(l_img, s_img, pos, transparency, True)
 
         # -----------------------------------------
 
@@ -343,10 +354,10 @@ class VisualsNode(Thread, Node):
         win_img, robot_coord = self.crop_map(coord=coord)
 
         # Draws robot in maps image
-        # if coord[0] and coord[1]:
-        #     win_img = self.draw_robot(
-        #         l_img=win_img, s_img=self._kiwibot_img, pos=robot_coord
-        #     )
+        if coord[0] and coord[1]:
+            win_img = self.draw_robot(
+                l_img=win_img, s_img=self._kiwibot_img, pos=robot_coord
+            )
 
         # Draw descriptions
         str_list = [
@@ -398,16 +409,23 @@ class VisualsNode(Thread, Node):
     # TODO: Drawing map descriptors
     def draw_descriptors(self, land_marks: list) -> None:
         """
-            Draws maps keypoints in map image
+            Draws map keypoints in map image
         Args:
-            img_src: `cv2.math` map image
         Returns:
-            _: `cv2.math` map image with keypoints drawn
         """
 
         # -----------------------------------------
         # Insert you solution here
-        pass
+        win_img = self._win_background.copy()
+        for land_mark in land_marks:
+            win_img = cv2.circle(
+                img=self._win_background,
+                center=(land_mark.x, land_mark.y),
+                radius=10,
+                color=(0, 0, 255),
+                thickness=2
+                )
+        self._win_background = win_img
 
         # -----------------------------------------
 
@@ -449,11 +467,11 @@ class VisualsNode(Thread, Node):
                     continue
                 # Key1=1048633 & Key9=1048625
                 elif key >= 49 and key <= 57:
-                    printlog(
-                        msg=f"Code is broken here",
-                        msg_type="WARN",
-                    )
-                    continue
+                    #printlog(
+                    #    msg=f"Code is broken here",
+                    #    msg_type="WARN",
+                    #)
+                    #continue
                     printlog(
                         msg=f"Routine {chr(key)} was sent to path planner node",
                         msg_type="INFO",
