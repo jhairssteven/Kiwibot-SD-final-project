@@ -6,7 +6,7 @@
 FROM ubuntu:20.04
 
 # Or your actual UID, GID on Linux if not the default 1000
-ARG USERNAME=ada
+ARG USERNAME=steven
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 

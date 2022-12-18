@@ -6,8 +6,8 @@ services:
       context: ../
       dockerfile: .devcontainer/Dockerfile
 
-    user: "ada"
-    working_dir: /home/ada
+    user: "steven"
+    working_dir: /home/steven
     
     network_mode: host
 
