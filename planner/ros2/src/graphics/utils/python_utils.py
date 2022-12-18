@@ -47,7 +47,7 @@ def printlog(msg: str, msg_type: str = "INFO", flush: bool = True):
 
 
 def overlay_image(l_img, s_img, pos, transparency, src_center=False):
-    """Overlay 's_img on' top of 'l_img' at the position specified by
+    """Overlay 's_img' on top of 'l_img' at the position specified by
         pos and blend using 'alpha_mask' and 'transparency'.
     Args:
         l_img: `cv2.mat` inferior image to overlay superior image
